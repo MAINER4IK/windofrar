@@ -10,10 +10,12 @@
     button {
       padding: 10px 20px; font-size: 24px; border: none; border-radius: 20px; color: #ffffff; cursor: pointer; margin: 10px;
     }
-    button:first-child { background-color: #34C759; }
-    button:first-child:hover { background-color: #2F865C; }
-    button:last-child { background-color: #45A0E6; }
-    button:last-child:hover { background-color: #2F7AC8; }
+    /* Изменение цвета кнопки "Скачать windofrar" на зеленый */
+    .download-button { background-color: #34C759; } /* Зеленый цвет */
+    .download-button:hover { background-color: #2F865C; }
+    /* Изменение цвета кнопки "Открытый код" на синий */
+    .code-button { background-color: #45A0E6; } /* Синий цвет */
+    .code-button:hover { background-color: #2F7AC8; }
     .header-image { width: 100%; height: 350px; background: url('qwee.jpg') center/contain no-repeat; }
     .description { font-size: 18px; color: #666; margin-top: 20px; }
     .button-group { display: flex; justify-content: center; margin-bottom: 20px; }
@@ -24,9 +26,9 @@
   <h1>Самый лучший активатор Windows/Office/WinRAR</h1>
   <div class="button-group">
     <a href="https://github.com/MAINER4IK/windofrar/releases/download/Release/windofrar.exe" download>
-      <button>Скачать windofrar</button>
+      <button class="download-button">Скачать windofrar</button> <!-- Кнопка "Скачать windofrar" -->
     </a>
-    <button onclick="window.location.href='https://github.com/MAINER4IK/windofrar/';">Открытый код</button>
+    <button class="code-button" onclick="window.location.href='https://github.com/MAINER4IK/windofrar/';">Открытый код</button> <!-- Кнопка "Открытый код" -->
   </div>
   <div class="description">
     Без вирусов и вредоносного кода. Активатор выложен на GitHub где вы можете посмотреть исходный код.
