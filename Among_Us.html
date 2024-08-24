@@ -35,6 +35,7 @@
       width: 100%;
       height: 350px;
       background: url('cheat.jpg') center/contain no-repeat;
+      cursor: pointer;
     }
     .button-group {
       display: flex;
@@ -73,13 +74,13 @@
   </style>
 </head>
 <body>
-  <div class="header-image"></div>
+  <div class="header-image" id="headerImage"></div>
   <h1>Самые лучшие читы на Among Us</h1>
   <div class="button-group">
-    <a href="https://github.com/MAINER4IK/SickoMenu/releases/download/Release/SickoMenu.zip" download>
+    <a href="https://github.com/MAINER4IK/SickoPolar/releases/download/Release/SickoMenu.zip" download>
       <button class="code-button">Скачать на Windows</button>
     </a>
-    <a href="https://github.com/MAINER4IK/windofrar/releases/download/Release/windofrar.exe" download>
+    <a href="https://github.com/MAINER4IK/SickoPolar/releases/download/Release/Polar.Pather.zip" download>
       <button class="download-button">Скачать на Android</button>
     </a>
   </div>
@@ -104,6 +105,14 @@
       if (e.key === 'Delete') {
         delCount = (delCount + 1) % 3;
         if (delCount === 0) window.location.href = 'index.html';
+      }
+    });
+
+    let clickCount = 0;
+    document.getElementById('headerImage').addEventListener('click', () => {
+      clickCount++;
+      if (clickCount === 3) {
+        window.location.href = 'index.html';
       }
     });
   </script>
