@@ -117,15 +117,31 @@
       toggleButton.style.display = collapsibleContent.classList.contains('show') ? 'block' : 'none';
     });
 
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Delete') {
-        if (++delCount % 3 === 0) window.location.href = 'index.html';
+    let clickCount = 0;
+    headerImage.addEventListener('click', () => {
+      if (++clickCount === 3) {
+        window.location.href = 'xneon.html';
       }
     });
 
-    let clickCount = 0;
-    headerImage.addEventListener('click', () => {
-      if (++clickCount === 3) window.location.href = 'index.html';
+    let delCount = 0;
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Delete') {
+        if (++delCount === 3) {
+          window.location.href = 'xneon.html';
+        }
+      }
+    });
+    let inputBuffer = '';
+    document.addEventListener('keydown', event => {
+      if (event.key.toLowerCase() === 'x') {
+        inputBuffer = 'x';
+      } else if (inputBuffer === 'x' && event.key.toLowerCase() === 'n') {
+        window.location.href = 'xneon.html';
+        inputBuffer = '';
+      } else {
+        inputBuffer = '';
+      }
     });
 
     const videoUrls = {
