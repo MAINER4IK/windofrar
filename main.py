@@ -1,267 +1,287 @@
 import tkinter as tk
 from tkinter import messagebox
 from PIL import Image, ImageTk
-import subprocess
-import platform
-import os
-import shutil
-import sys
+import subprocess, platform, os, shutil, sys
 
-# Пути к файлам
-slmgr_path = r"C:\Windows\System32\slmgr.vbs"
-default_destination_dir = "C:/Program Files/WinRAR"
+# Константы
+SLMGR_PATH = r"C:\Windows\System32\slmgr.vbs"
+DEFAULT_RAR_DIR = "C:/Program Files/WinRAR"
+KMS_SERVER = "kms.digiboy.ir"
 
-# Получаем абсолютный путь к скрипту или к временной папке, если это сборка с PyInstaller
+# Ключи активации Windows
+WINDOWS_KEYS = {
+    "Windows 11 Pro": "W269N-WFGWX-YVC9B-4J6C9-T83GX",
+    "Windows 11 Home": "TX9XD-98N7V-6WMQ6-BX7FG-H8Q99",
+    "Windows 11 Enterprise": "NPPR9-FWDCX-D2C8J-H872K-2YT43",
+    "Windows 10 Pro": "W269N-WFGWX-YVC9B-4J6C9-T83GX",
+    "Windows 10 Home": "TX9XD-98N7V-6WMQ6-BX7FG-H8Q99",
+    "Windows 10 Enterprise": "NPPR9-FWDCX-D2C8J-H872K-2YT43",
+    "Windows 8.1 Pro": "GCRJD-8NW9H-F2CDX-CCM8D-9D6T9",
+    "Windows 8.1 Enterprise": "MHF9N-XY6XB-WVXMC-BTDCT-MKKG7",
+    "Windows 7 Pro": "FJ82H-XT6CR-J8D7P-XQJJ2-GPDD4",
+    "Windows 7 Enterprise": "33PXH-7Y6KF-2VJC9-XBBR8-HVTHH"
+}
+
 def resource_path(relative_path):
     try:
-        base_path = sys._MEIPASS
+        return os.path.join(sys._MEIPASS, relative_path)
     except AttributeError:
-        base_path = os.path.dirname(os.path.abspath(__file__))
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), relative_path)
 
-    return os.path.join(base_path, relative_path)
+def run_slmgr_commands(commands):
+    for command in commands:
+        result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                              creationflags=subprocess.CREATE_NO_WINDOW, check=False)
 
-script_dir = resource_path("")
-source_file = os.path.join(script_dir, "", "rarreg.key")
-BAT_FILE_PATH = resource_path('activator.bat')  # Путь к activator.bat
+        if result.returncode != 0:
+            error_msg = result.stderr.decode('cp1251', errors='ignore') or f"Код ошибки: {result.returncode}"
 
-# Функция для выполнения команд
-def run_commands(commands):
+            if result.returncode == 3221549093:  # STATUS_PIPE_BROKEN
+                messagebox.showerror("Ошибка",
+                    "Не удалось выполнить команду.\n\nВозможные причины:\n• Недостаточно прав\n• Антивирус блокирует\n• Поврежден slmgr.vbs\n\nПопробуйте:\n1. Запустить от имени администратора\n2. Отключить антивирус\n3. Перезагрузить компьютер")
+            elif result.returncode == 3221225477:  # ERROR_ACCESS_DENIED
+                messagebox.showerror("Ошибка доступа", "Недостаточно прав. Запустите от имени администратора.")
+            else:
+                messagebox.showerror("Ошибка", f"Ошибка выполнения:\n{error_msg}")
+            return False
+
+    messagebox.showinfo("Успех", "Операция выполнена успешно!")
+    return True
+
+def get_windows_info():
     try:
-        for command in commands:
-            subprocess.run(
-                command,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW,
-                check=True
-            )
-        messagebox.showinfo("Успех", "Операция выполнена успешно!")
-    except subprocess.CalledProcessError as e:
-        messagebox.showerror("Ошибка", f"Ошибка при выполнении: {str(e)}")
+        import winreg
+        key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion")
+        edition, _ = winreg.QueryValueEx(key, "ProductName")
+        winreg.CloseKey(key)
+        return {"edition": edition, "release": platform.release()}
+    except:
+        return {"edition": "Неизвестная", "release": platform.release()}
 
-# Функции активации/деактивации для Windows
-def activate_windows():
-    commands = [
-        ["cscript", slmgr_path, "/ipk", "W269N-WFGWX-YVC9B-4J6C9-T83GX"],
-        ["cscript", slmgr_path, "/skms", "kms8.msguides.com"],
-        ["cscript", slmgr_path, "/ato"]
-    ]
-    run_commands(commands)
+def activate_windows_version(version_key):
+    key = WINDOWS_KEYS.get(version_key)
+    if not key:
+        messagebox.showerror("Ошибка", "Ключ не найден")
+        return
+
+    commands = [["cscript", SLMGR_PATH, "/ipk", key],
+                ["cscript", SLMGR_PATH, "/skms", KMS_SERVER],
+                ["cscript", SLMGR_PATH, "/ato"]]
+    run_slmgr_commands(commands)
+
+def activate_current_windows():
+    try:
+        info = get_windows_info()
+        edition = info.get("edition", "")
+
+        # Определяем тип системы
+        is_pro = "Pro" in edition or "Professional" in edition
+        is_home = "Home" in edition
+        is_enterprise = "Enterprise" in edition
+        is_win11 = "11" in edition or info.get("release") == "11"
+
+        if is_pro:
+            version_key = "Windows 11 Pro" if is_win11 else "Windows 10 Pro"
+        elif is_home:
+            version_key = "Windows 11 Home" if is_win11 else "Windows 10 Home"
+        elif is_enterprise:
+            version_key = "Windows 11 Enterprise" if is_win11 else "Windows 10 Enterprise"
+        else:
+            messagebox.showinfo("Информация", f"Обнаружена редакция: {edition}\nИспользуйте ручной выбор.")
+            return
+
+        if version_key in WINDOWS_KEYS:
+            activate_windows_version(version_key)
+        else:
+            messagebox.showwarning("Предупреждение", f"Ключ для '{edition}' не найден.")
+
+    except Exception as e:
+        messagebox.showerror("Ошибка", f"Ошибка определения версии: {e}")
 
 def deactivate_windows():
-    commands = [
-        ["cscript", slmgr_path, "/upk"],
-        ["cscript", slmgr_path, "/cpky"]
-    ]
-    run_commands(commands)
+    commands = [["cscript", SLMGR_PATH, "/upk"], ["cscript", SLMGR_PATH, "/cpky"]]
+    run_slmgr_commands(commands)
 
-# Функции активации/деактивации для WinRAR
+def get_rar_path():
+    if use_default.get():
+        return DEFAULT_RAR_DIR
+    path = path_entry.get().strip()
+    if not path:
+        messagebox.showwarning("Предупреждение", "Укажите путь к WinRAR.")
+        return None
+    return path
+
 def activate_winrar():
     try:
-        if use_default.get():
-            destination_dir = default_destination_dir
-        else:
-            destination_dir = path_entry.get()
-            if not destination_dir:
-                messagebox.showwarning("Предупреждение", "Вы должны указать путь к WinRAR.")
-                return
+        destination_dir = get_rar_path()
+        if not destination_dir: return
 
-        if os.path.isdir(destination_dir):
-            destination_file = os.path.join(destination_dir, os.path.basename(source_file))
-            if os.path.exists(destination_file):
-                messagebox.showinfo("Информация", "WinRAR уже активирован.")
-            else:
-                shutil.copy(source_file, destination_dir)
-                messagebox.showinfo("Успех", "WinRAR успешно активирован!")
-        else:
+        if not os.path.isdir(destination_dir):
             messagebox.showwarning("Предупреждение", "Указанный путь не является директорией.")
+            return
+
+        source_file = resource_path("rarreg.key")
+        destination_file = os.path.join(destination_dir, "rarreg.key")
+
+        if os.path.exists(destination_file):
+            messagebox.showinfo("Информация", "WinRAR уже активирован.")
+        else:
+            shutil.copy(source_file, destination_dir)
+            messagebox.showinfo("Успех", "WinRAR успешно активирован!")
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Ошибка при активации: {e}")
+        messagebox.showerror("Ошибка", f"Ошибка активации: {e}")
 
 def deactivate_winrar():
     try:
-        if use_default.get():
-            destination_dir = default_destination_dir
-        else:
-            destination_dir = path_entry.get()
-            if not destination_dir:
-                messagebox.showwarning("Предупреждение", "Вы должны указать путь к WinRAR.")
-                return
+        destination_dir = get_rar_path()
+        if not destination_dir: return
 
-        destination_file = os.path.join(destination_dir, os.path.basename(source_file))
+        destination_file = os.path.join(destination_dir, "rarreg.key")
         if os.path.exists(destination_file):
             os.remove(destination_file)
             messagebox.showinfo("Успех", "WinRAR успешно деактивирован!")
         else:
-            messagebox.showwarning("Предупреждение", "Файл не найден для удаления.")
+            messagebox.showwarning("Предупреждение", "Файл не найден.")
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Ошибка при деактивации WinRAR: {e}")
+        messagebox.showerror("Ошибка", f"Ошибка деактивации: {e}")
 
-def check_activation_winrar():
+def check_winrar_activation():
     try:
-        if use_default.get():
-            destination_dir = default_destination_dir
-        else:
-            destination_dir = path_entry.get()
-            if not destination_dir:
-                messagebox.showwarning("Предупреждение", "Вы должны указать путь к WinRAR.")
-                return
+        destination_dir = get_rar_path()
+        if not destination_dir: return
 
-        destination_file = os.path.join(destination_dir, os.path.basename(source_file))
-        if os.path.exists(destination_file):
-            messagebox.showinfo("Статус", "WinRAR уже активирован.")
-        else:
-            messagebox.showinfo("Статус", "WinRAR не активирован.")
+        destination_file = os.path.join(destination_dir, "rarreg.key")
+        status = "активирован" if os.path.exists(destination_file) else "не активирован"
+        messagebox.showinfo("Статус", f"WinRAR {status}.")
     except Exception as e:
-        messagebox.showerror("Ошибка", f"Ошибка при проверке активации: {e}")
+        messagebox.showerror("Ошибка", f"Ошибка проверки: {e}")
 
-# Функции активации/деактивации для Office
 def activate_office():
     try:
-        subprocess.run([BAT_FILE_PATH], check=True, creationflags=subprocess.CREATE_NO_WINDOW)
+        subprocess.run([resource_path('activator.bat')], check=True,
+                      creationflags=subprocess.CREATE_NO_WINDOW)
         messagebox.showinfo("Статус", "Office активирован успешно.")
     except subprocess.CalledProcessError as e:
         messagebox.showerror("Ошибка", f"Не удалось запустить скрипт: {e}")
 
 def deactivate_office():
     try:
-        architecture = platform.architecture()[0]
-        if architecture == '64bit':
-            initial_command = 'cd %ProgramFiles%\\Microsoft Office\\Office16\\'
-        elif architecture == '32bit':
-            initial_command = 'cd %ProgramFiles(x86)%\\Microsoft Office\\Office16\\'
-        else:
+        arch = platform.architecture()[0]
+        office_path = '%ProgramFiles%\\Microsoft Office\\Office16\\' if arch == '64bit' else '%ProgramFiles(x86)%\\Microsoft Office\\Office16\\'
+
+        if arch not in ['32bit', '64bit']:
             messagebox.showerror("Ошибка", "Не удалось определить разрядность системы.")
             return
 
-        # Команды для деактивации профессиональной плюс и стандартной версий
-        deactivate_pro_plus_command = 'cscript ospp.vbs /unpkey:6F7TH'
-        deactivate_standard_command = 'cscript ospp.vbs /unpkey:78VT3'
-        
-        final_command = f'{initial_command} && {deactivate_pro_plus_command} && {deactivate_standard_command}'
+        commands = [
+            f'cd {office_path}',
+            'cscript ospp.vbs /unpkey:6F7TH',
+            'cscript ospp.vbs /unpkey:78VT3'
+        ]
 
-        subprocess.run(final_command, shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        
+        subprocess.run(' && '.join(commands), shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
         messagebox.showinfo("Статус", "Office деактивирован успешно.")
     except Exception as e:
         messagebox.showerror("Ошибка", f"Не удалось деактивировать Office: {e}")
 
-# Главное меню с выбором активатора
-def main_menu():
-    main_window = tk.Tk()
-    main_window.title("Выберите активатор")
-    main_window.geometry("400x300")
-    main_window.resizable(False, False)
+def create_window(title, image_name, buttons_config):
+    window = tk.Tk()
+    window.title(title)
+    window.geometry("400x300")
+    window.resizable(False, False)
 
-    add_image(main_window, resource_path("images/windofrar.png"))
-
-    windows_button = tk.Button(main_window, text="Активация Windows", command=lambda: open_windows_activator(main_window))
-    windows_button.pack(pady=10)
-
-    winrar_button = tk.Button(main_window, text="Активация WinRAR", command=lambda: open_winrar_activator(main_window))
-    winrar_button.pack(pady=10)
-
-    office_button = tk.Button(main_window, text="Активация Office", command=lambda: open_office_activator(main_window))
-    office_button.pack(pady=10)
-
-    main_window.mainloop()
-
-# Окно активации Windows
-def open_windows_activator(main_window):
-    main_window.destroy()
-
-    win_window = tk.Tk()
-    win_window.title("Активатор Windows")
-    win_window.geometry("400x300")
-    win_window.resizable(False, False)
-
-    add_image(win_window, resource_path("images/windows.png"))
-
-    activate_win_button = tk.Button(win_window, text="Активировать Windows", command=activate_windows)
-    activate_win_button.pack(pady=10)
-
-    deactivate_win_button = tk.Button(win_window, text="Деактивировать Windows", command=deactivate_windows)
-    deactivate_win_button.pack(pady=10)
-
-    back_button = tk.Button(win_window, text="Назад", command=lambda: back_to_main_menu(win_window))
-    back_button.pack(pady=10)
-
-    win_window.mainloop()
-
-# Окно активации WinRAR
-def open_winrar_activator(main_window):
-    global use_default, path_entry
-
-    main_window.destroy()
-
-    rar_window = tk.Tk()
-    rar_window.title("Активатор WinRAR")
-    rar_window.geometry("400x450")
-    rar_window.resizable(False, False)
-
-    add_image(rar_window, resource_path("images/winrar.png"))
-
-    use_default = tk.BooleanVar(value=True)
-    default_path_option = tk.Checkbutton(rar_window, text="Использовать путь по умолчанию для WinRAR", variable=use_default)
-    default_path_option.pack(pady=5)
-
-    path_label = tk.Label(rar_window, text="Или укажите свой путь:")
-    path_label.pack()
-
-    path_entry = tk.Entry(rar_window, width=50)
-    path_entry.pack(pady=5)
-
-    activate_rar_button = tk.Button(rar_window, text="Активировать WinRAR", command=activate_winrar)
-    activate_rar_button.pack(pady=10)
-
-    deactivate_rar_button = tk.Button(rar_window, text="Деактивировать WinRAR", command=deactivate_winrar)
-    deactivate_rar_button.pack(pady=10)
-
-    check_activation_button = tk.Button(rar_window, text="Проверить активацию", command=check_activation_winrar)
-    check_activation_button.pack(pady=10)
-
-    back_button = tk.Button(rar_window, text="Назад", command=lambda: back_to_main_menu(rar_window))
-    back_button.pack(pady=10)
-
-    rar_window.mainloop()
-
-# Окно активации Office
-def open_office_activator(main_window):
-    main_window.destroy()
-
-    office_window = tk.Tk()
-    office_window.title("Активатор Office")
-    office_window.geometry("400x300")
-    office_window.resizable(False, False)
-
-    add_image(office_window, resource_path("images/office.png"))
-
-    activate_office_button = tk.Button(office_window, text="Активировать Office", command=activate_office)
-    activate_office_button.pack(pady=10)
-
-    deactivate_office_button = tk.Button(office_window, text="Деактивировать Office", command=deactivate_office)
-    deactivate_office_button.pack(pady=10)
-
-    back_button = tk.Button(office_window, text="Назад", command=lambda: back_to_main_menu(office_window))
-    back_button.pack(pady=10)
-
-    office_window.mainloop()
-
-# Функция для возврата в главное меню
-def back_to_main_menu(window):
-    window.destroy()
-    main_menu()
-
-# Функция для добавления изображения
-def add_image(window, image_path):
     try:
-        image = Image.open(image_path)
+        image = Image.open(resource_path(f"images/{image_name}"))
         photo = ImageTk.PhotoImage(image)
         label = tk.Label(window, image=photo)
         label.image = photo
         label.pack()
-    except Exception as e:
-        messagebox.showerror("Ошибка", f"Ошибка при загрузке изображения: {e}")
+    except:
+        pass
+
+    # Создаем кнопки согласно конфигурации
+    for btn_config in buttons_config:
+        if len(btn_config) == 2:
+            text, command = btn_config
+            tk.Button(window, text=text, command=command).pack(pady=10)
+        else:
+            text, command, pady = btn_config
+            tk.Button(window, text=text, command=command).pack(pady=pady)
+
+    return window
+
+def main_menu():
+    def open_activator(activator_type, main_win):
+        main_win.destroy()
+        if activator_type == "windows":
+            open_windows_activator()
+        elif activator_type == "winrar":
+            open_winrar_activator()
+        elif activator_type == "office":
+            open_office_activator()
+
+    window = create_window("Выберите активатор", "windofrar.png", [
+        ("Активация Windows", lambda: open_activator("windows", window)),
+        ("Активация WinRAR", lambda: open_activator("winrar", window)),
+        ("Активация Office", lambda: open_activator("office", window))
+    ])
+    window.mainloop()
+
+def open_windows_activator():
+    window = create_window("Активатор Windows", "windows.png", [
+        ("Активировать Windows", activate_current_windows),
+        ("Деактивировать Windows", deactivate_windows),
+        ("Назад", lambda: back_to_main_menu(window))
+    ])
+    window.mainloop()
+
+def open_winrar_activator():
+    global use_default, path_entry
+
+    window = tk.Tk()
+    window.title("Активатор WinRAR")
+    window.geometry("400x450")
+    window.resizable(False, False)
+
+    try:
+        image = Image.open(resource_path("images/winrar.png"))
+        photo = ImageTk.PhotoImage(image)
+        label = tk.Label(window, image=photo)
+        label.image = photo
+        label.pack()
+    except:
+        pass
+
+    use_default = tk.BooleanVar(value=True)
+    tk.Checkbutton(window, text="Использовать путь по умолчанию для WinRAR", variable=use_default).pack(pady=5)
+
+    tk.Label(window, text="Или укажите свой путь:").pack()
+    path_entry = tk.Entry(window, width=50)
+    path_entry.pack(pady=5)
+
+    buttons = [
+        ("Активировать WinRAR", activate_winrar, 10),
+        ("Деактивировать WinRAR", deactivate_winrar, 10),
+        ("Проверить активацию", check_winrar_activation, 10),
+        ("Назад", lambda: back_to_main_menu(window), 10)
+    ]
+
+    for text, command, pady in buttons:
+        tk.Button(window, text=text, command=command).pack(pady=pady)
+
+    window.mainloop()
+
+def open_office_activator():
+    window = create_window("Активатор Office", "office.png", [
+        ("Активировать Office", activate_office),
+        ("Деактивировать Office", deactivate_office),
+        ("Назад", lambda: back_to_main_menu(window))
+    ])
+    window.mainloop()
+
+def back_to_main_menu(window):
+    window.destroy()
+    main_menu()
 
 if __name__ == "__main__":
     main_menu()
